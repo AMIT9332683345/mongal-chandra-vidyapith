@@ -1,0 +1,44 @@
+{
+  "name": "mongal-chandra-vidyapith",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Public website and school management platform for Mongal Chandra Vidyapith",
+  "engines": {
+    "node": ">=20.9"
+  },
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:start": "node scripts/mongo-local.mjs start",
+    "db:stop": "node scripts/mongo-local.mjs stop",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:reset": "tsx scripts/reset.ts",
+    "db:smoke": "tsx scripts/mongo-smoke.ts",
+    "setup:admin": "tsx scripts/setup.ts",
+    "db:uploads": "tsx scripts/uploads-to-gridfs.ts"
+  },
+  "dependencies": {
+    "mongodb": "^7.8.0",
+    "next": "^16.4.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "sharp": "^0.34.5",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.14",
+    "@types/node": "^24.7.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.1",
+    "mongodb-memory-server": "^11.3.0",
+    "tailwindcss": "^4.1.14",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

@@ -1,0 +1,38 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Local environment — never commit real secrets.
+.env
+.env.local
+.env.*.local
+
+# Local development MongoDB data directory (the replica set `npm run db:start` uses).
+.mongo-data/
+
+# The relational schema and migrations from the Postgres era, kept on disk only
+# so the port can be audited. Nothing in the running application reads them.
+.postgres-legacy/
+.pgdata/
+
+# Private uploads (admission documents, certificates).
+uploads/
+
+# Diagnostics and coverage.
+coverage/
+test-results/
+playwright-report/
+*.log
+npm-debug.log*
+
+# OS / editor noise.
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+next-env.d.ts
+tsconfig.tsbuildinfo

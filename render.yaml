@@ -1,0 +1,65 @@
+# Render blueprint for the school portal.
+#
+# The public site is deployed on Vercel; this service is the always-on half —
+# sign-in, the panels, server actions and the document endpoints — reading and
+# writing the same MongoDB Atlas cluster. One repository, two deployments.
+#
+# In Render: New → Blueprint → pick this repository. Render reads this file and
+# asks only for the values marked `sync: false`.
+services:
+  - type: web
+    name: mcv-portal
+    runtime: node
+    plan: free
+    region: singapore
+    # The schema step is convergent, not a migration history: it creates the
+    # collections, validators and indexes the code expects and is harmless to
+    # replay. Seeding writes roles, permissions, the academic year and labelled
+    # content slots — it is likewise an upsert of reference data only, and adds
+    # no fact about the school. Both run here rather than in a one-off shell so
+    # a fresh Atlas cluster becomes a working database on the first deploy.
+    buildCommand: npm ci --include=dev && npm run db:migrate && npm run db:seed && npm run build
+    # `next start` reads PORT, which Render assigns.
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20.19.0
+      - key: NODE_ENV
+        value: production
+      # This deployment is the portal origin; its copy of the public pages must
+      # not be indexed as a duplicate of the Vercel site.
+      - key: SITE_ROLE
+        value: portal
+      # Atlas → Connect → Drivers. Include the database name or set
+      # MONGODB_DATABASE below. The cluster's network access list must allow
+      # 0.0.0.0/0 (or Render's egress addresses) or the build fails at the first
+      # query.
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DATABASE
+        value: mongal_chandra_vidyapith
+      # The public site's origin. Used for canonical URLs, the sitemap link and
+      # redirects that leave the portal.
+      - key: APP_URL
+        sync: false
+      # This service's own public URL, e.g. https://mcv-portal.onrender.com.
+      # Next inlines NEXT_PUBLIC_* at build time, so changing it needs a rebuild.
+      - key: NEXT_PUBLIC_PORTAL_ORIGIN
+        sync: false
+      # Render generates these on the first deploy and keeps them. They are
+      # independent of the Vercel copy's secrets: portal pages sign in here and
+      # post their forms here, so tokens never have to cross hosts.
+      - key: CSRF_SECRET
+        generateValue: true
+      - key: IP_HASH_SECRET
+        generateValue: true
+      - key: SESSION_TTL_HOURS
+        value: 12
+      - key: LOGIN_MAX_ATTEMPTS
+        value: 5
+      - key: LOGIN_LOCKOUT_MINUTES
+        value: 15
+      - key: MAX_UPLOAD_BYTES
+        value: 10485760
