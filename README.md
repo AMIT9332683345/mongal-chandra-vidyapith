@@ -185,6 +185,14 @@ Tokens live in `src/app/globals.css`: light values in `:root`, dark values in
 `.dark`, both exposed to Tailwind through `@theme inline`. Dark mode is a class
 on `<html>`, never a media query the site obeys silently.
 
+Three contact actions — **Call Now**, **WhatsApp Chat Now** and **Email Us** —
+stay on screen at every width: pills fixed at the bottom right on desktop, a
+three-button bar at the bottom on phones, and the same row inside the home and
+contact pages. A channel the school has not confirmed keeps its button but points
+at the contact form, carries a dashed outline and a dot, and says in its
+accessible name that the detail is not published yet — so the control never
+claims a number the school has not supplied.
+
 `src/lib/theme.ts` holds the pre-paint script that runs before first paint. Its
 rule, tested rather than asserted: an explicit saved choice always wins; the
 system preference is consulted only for a visitor who has never touched the

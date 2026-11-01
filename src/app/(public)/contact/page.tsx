@@ -2,6 +2,7 @@ import { Field, SubmitRow } from "@/components/field";
 import { JsonForm } from "@/components/json-form";
 import { FormNotice, FormTokens } from "@/components/form-tokens";
 import { PageHeader } from "@/components/page-header";
+import { ContactButtons } from "@/components/contact-actions";
 import { InfoGap, SectionHeading } from "@/components/section-heading";
 import { pageMetadata } from "@/lib/metadata";
 import { currentFormToken } from "@/server/http/respond";
@@ -58,6 +59,10 @@ export default async function ContactPage({
         title="Get in touch"
         intro={`Written answers from the office of ${schoolName}, and the forms the school reads.`}
       />
+
+      <section className="shell pt-8">
+        <ContactButtons phone={phone} email={email} />
+      </section>
 
       <section className="shell grid gap-12 py-12 lg:grid-cols-[1fr_1.4fr]">
         <div>

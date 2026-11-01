@@ -6,6 +6,7 @@ import { NoticeList } from "@/components/notice-list";
 import { StoredPhoto } from "@/components/stored-photo";
 import { SchoolStructuredData } from "@/components/school-structured-data";
 import { EmptyState, InfoGap, SectionHeading } from "@/components/section-heading";
+import { ContactButtons } from "@/components/contact-actions";
 import {
   getCurrentAcademicYear,
   getSchoolName,
@@ -731,6 +732,28 @@ export default async function HomePage() {
                   Procedure and documents
                 </Link>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* The three ways to reach the office, in the flow of the page as well as
+          fixed over it. */}
+      <section className="section-tight">
+        <div className="shell">
+          <div className="cta-banner px-6 py-9 md:px-10">
+            <div className="relative z-[1] grid items-center gap-6 md:grid-cols-[1.5fr_auto]">
+              <div>
+                <p className="eyebrow" style={{ color: "var(--gold)" }}>
+                  Talk to the office
+                </p>
+                <h2 className="mt-2">Call, message or write</h2>
+                <p className="mt-3 max-w-xl">
+                  Whichever suits you — the office answers the telephone, replies on WhatsApp and reads its email. The
+                  contact form is there for when the office is closed.
+                </p>
+              </div>
+              <ContactButtons phone={phone} email={email} onDark />
             </div>
           </div>
         </div>

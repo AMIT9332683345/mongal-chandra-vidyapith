@@ -787,40 +787,86 @@
     border-top: 1px solid rgb(255 255 255 / 0.14);
   }
 
-  /* Floating contact controls and the mobile admission bar. */
-  .floating-stack {
+  /* The three contact actions. Kept on screen at every width and in both
+     themes; a channel the school has not published still appears, and the dot
+     marks it as a gap rather than a working line. */
+  .contact-stack {
     position: fixed;
     right: 1rem;
-    bottom: 5.75rem;
+    bottom: 1.5rem;
     z-index: 40;
-    display: flex;
+    display: none;
     flex-direction: column;
-    gap: 0.65rem;
+    align-items: flex-end;
+    gap: 0.55rem;
   }
   @media (min-width: 768px) {
-    .floating-stack {
-      bottom: 1.5rem;
+    .contact-stack {
+      display: flex;
     }
   }
-  .floating-button {
-    display: grid;
-    place-items: center;
-    width: 3rem;
-    height: 3rem;
+
+  .contact-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.62rem 1rem;
     border-radius: 999px;
-    color: #ffffff;
-    box-shadow: 0 14px 30px -14px rgb(0 0 0 / 0.6);
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1;
     text-decoration: none;
-    transition: transform 160ms ease;
+    color: #ffffff;
+    box-shadow: 0 14px 30px -14px rgb(0 0 0 / 0.55);
+    transition: transform 160ms ease, box-shadow 160ms ease;
   }
-  .floating-button:hover {
+  .contact-pill:hover {
     transform: translateY(-2px);
+    color: #ffffff;
+    text-decoration: none;
   }
-  .floating-whatsapp {
-    background-color: #25d366;
+  .contact-pill svg {
+    flex: none;
   }
-  .floating-call {
+  .contact-call {
     background-color: var(--brand);
+  }
+  .contact-whatsapp {
+    background-color: #1ebe5d;
+  }
+  .contact-email {
+    background-color: var(--gold);
+    color: #14203c;
+  }
+  .contact-email:hover {
+    color: #14203c;
+  }
+  .contact-pill[data-unpublished="true"] {
+    box-shadow: none;
+    border: 1px dashed rgb(255 255 255 / 0.55);
+  }
+  .contact-email[data-unpublished="true"] {
+    border-color: rgb(20 32 60 / 0.45);
+  }
+  .contact-dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background-color: currentColor;
+    opacity: 0.55;
+  }
+
+  .contact-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+  .contact-inline-on-dark .contact-call {
+    background-color: rgb(255 255 255 / 0.16);
+    border: 1px solid rgb(255 255 255 / 0.4);
+  }
+  .contact-inline-on-dark .contact-call[data-unpublished="true"] {
+    border-style: dashed;
   }
 
   .mobile-action-bar {
@@ -830,9 +876,9 @@
     bottom: 0;
     z-index: 41;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-    padding: 0.55rem 0.75rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.4rem;
+    padding: 0.5rem 0.6rem calc(0.5rem + env(safe-area-inset-bottom));
     background-color: var(--surface);
     border-top: 1px solid var(--line);
     box-shadow: 0 -12px 30px -24px rgb(15 23 41 / 0.8);
@@ -843,10 +889,56 @@
     }
   }
 
+  .contact-bar-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.5rem 0.25rem;
+    border-radius: 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.1;
+    text-align: center;
+    text-decoration: none;
+    color: #ffffff;
+  }
+  .contact-bar-button:hover {
+    color: #ffffff;
+    text-decoration: none;
+  }
+  .contact-bar-button.contact-email {
+    color: #14203c;
+  }
+  .contact-bar-button.contact-email:hover {
+    color: #14203c;
+  }
+  .contact-bar-button[data-unpublished="true"] {
+    border: 1px dashed rgb(255 255 255 / 0.55);
+  }
+  .contact-bar-button.contact-email[data-unpublished="true"] {
+    border-color: rgb(20 32 60 / 0.45);
+  }
+  .contact-bar-label-short {
+    display: inline;
+  }
+  .contact-bar-label {
+    display: none;
+  }
+  @media (min-width: 420px) {
+    .contact-bar-label {
+      display: inline;
+    }
+    .contact-bar-label-short {
+      display: none;
+    }
+  }
+
   /* Keep the last line of the page clear of the fixed mobile action bar. */
   @media (max-width: 767px) {
     .site-footer .footer-bottom {
-      padding-bottom: 3.6rem;
+      padding-bottom: 5.5rem;
     }
   }
 
@@ -897,7 +989,7 @@
 @media print {
   .site-header,
   .site-footer,
-  .floating-stack,
+  .contact-stack,
   .mobile-action-bar {
     display: none;
   }

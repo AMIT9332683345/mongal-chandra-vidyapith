@@ -172,7 +172,7 @@ export async function SiteFooter() {
       </div>
 
       <div className="footer-bottom">
-        <div className="shell flex flex-col gap-2 py-5 pb-20 text-[0.8rem] md:flex-row md:items-center md:justify-between md:pb-5">
+        <div className="shell flex flex-col gap-2 py-5 pb-20 text-[0.8rem] md:flex-row md:items-center md:justify-between md:pb-5 md:pr-56">
           <p>
             © {year} {schoolName}. Photographs of pupils are published only with the written consent of
             their parents or guardians.

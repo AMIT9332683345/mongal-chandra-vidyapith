@@ -1,7 +1,7 @@
 import { getSchoolName, getSettings, settingText } from "@/server/content/site";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { FloatingActions } from "@/components/floating-actions";
+import { FloatingActions } from "@/components/contact-actions";
 
 /**
  * The public chrome, in one place so a page — including the 404 — cannot be
@@ -11,6 +11,7 @@ export async function SiteChrome({ children }: { children: React.ReactNode }) {
   const [schoolName, settings] = await Promise.all([getSchoolName(), getSettings()]);
   const tagline = settingText(settings, "school.tagline");
   const phone = settingText(settings, "school.phone");
+  const email = settingText(settings, "school.email");
 
   return (
     <>
@@ -19,13 +20,13 @@ export async function SiteChrome({ children }: { children: React.ReactNode }) {
         subtitle={tagline}
         contact={{
           phone,
-          email: settingText(settings, "school.email"),
+          email,
           officeHours: settingText(settings, "school.office_hours"),
         }}
       />
       <main id="main">{children}</main>
       <SiteFooter />
-      <FloatingActions phone={phone} />
+      <FloatingActions phone={phone} email={email} />
     </>
   );
 }
