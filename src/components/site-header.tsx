@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { PRIMARY_NAV, SIGN_IN_HREF, type NavItem } from "@/lib/navigation";
+import { PRIMARY_NAV, SIGN_IN_HREF, TEACHER_SIGN_IN_HREF, type NavItem } from "@/lib/navigation";
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
@@ -81,8 +81,13 @@ export function SiteHeader({
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "";
+    // The fixed call/WhatsApp/email controls sit above the page; while the drawer
+    // is open they would cover the last entries in it, so the stylesheet hides
+    // them for as long as this class is present.
+    document.body.classList.toggle("nav-open", menuOpen);
     return () => {
       document.body.style.overflow = "";
+      document.body.classList.remove("nav-open");
     };
   }, [menuOpen]);
 
@@ -123,6 +128,7 @@ export function SiteHeader({
               <Link href="/notices">Notice Board</Link>
               <Link href="/downloads">Downloads</Link>
               <Link href="/contact">Facing Issues?</Link>
+              <Link href={TEACHER_SIGN_IN_HREF}>Teacher Login</Link>
               <Link href={SIGN_IN_HREF} className="font-bold" style={{ color: "var(--gold)" }}>
                 Admin Login
               </Link>
@@ -200,6 +206,7 @@ export function SiteHeader({
             id="mobile-nav"
             aria-label="Primary"
             className="absolute right-0 top-0 h-full w-[min(22rem,90vw)] overflow-y-auto bg-[var(--surface)] p-5 shadow-2xl"
+            style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
           >
             <div className="flex items-center justify-between">
               <span className="text-[1rem] font-extrabold" style={{ color: "var(--brand)" }}>
@@ -252,6 +259,9 @@ export function SiteHeader({
               </Link>
               <Link href="/contact" className="button button-outline-navy w-full">
                 Enquire Now
+              </Link>
+              <Link href={TEACHER_SIGN_IN_HREF} className="button button-secondary w-full">
+                Teacher Login
               </Link>
               <Link href={SIGN_IN_HREF} className="button button-primary w-full">
                 Admin Login

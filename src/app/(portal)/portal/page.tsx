@@ -95,7 +95,15 @@ export default async function PortalPage({
               </tbody>
             </table>
 
-            <p className="mt-6">
+            <p className="mt-6 flex flex-wrap items-center gap-3">
+              <Link href="/portal/account" className="button button-secondary">
+                Account settings
+              </Link>
+              {principal.roleKeys.includes("teacher") ? (
+                <Link href="/teacher" className="button button-secondary">
+                  Teacher area
+                </Link>
+              ) : null}
               <SignOutButton />
             </p>
           </div>
@@ -137,8 +145,16 @@ export default async function PortalPage({
         <div className="rule pt-10">
           <h2 className="text-[1.15rem]">Your password</h2>
           <p className="mt-1 max-w-prose text-[0.95rem]" style={{ color: "var(--ink-muted)" }}>
-            The school never sees your password: only a derived hash is stored, and no one can read it back to you. If
-            you have forgotten it, an administrator must issue a new one.
+            The school never sees your password: only a derived hash is stored, and no one can read it back to you. The
+            address and the password can both be changed from{" "}
+            <Link href="/portal/account" style={{ color: "var(--accent)", fontWeight: 600 }}>
+              account settings
+            </Link>
+            . If you have forgotten them, the{" "}
+            <Link href="/forgot" style={{ color: "var(--accent)" }}>
+              recovery form
+            </Link>{" "}
+            puts a request in front of an administrator.
           </p>
           <ChangePasswordForm sessionId={principal.sessionId} />
         </div>

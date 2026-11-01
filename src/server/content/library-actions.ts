@@ -442,3 +442,49 @@ export async function setUserActiveAction(formData: FormData): Promise<ActionSta
     return actionOk(active ? "The account can sign in again." : "The account was suspended and signed out.");
   });
 }
+
+export async function updateUserEmailAction(formData: FormData): Promise<ActionState> {
+  const actor = await permitted("user.edit");
+  if (!actor) return refused("user.edit");
+  return attempt(actor, formData, async () => {
+    const userId = formString(formData, "userId");
+    if (!userId) return actionError("No account was named.");
+    const result = await library.updateUserEmail(actor, userId, formString(formData, "email") ?? "");
+    refresh("/portal/admin/users");
+    return actionOk(
+      `The sign-in address is now ${result.email}. Every session for that account ended, so it must sign in again with the new address.`,
+    );
+  });
+}
+
+export async function resetUserPasswordAction(formData: FormData): Promise<ActionState> {
+  const actor = await permitted("user.password_reset");
+  if (!actor) return refused("user.password_reset");
+  return attempt(actor, formData, async () => {
+    const userId = formString(formData, "userId");
+    if (!userId) return actionError("No account was named.");
+    const result = await library.resetUserPassword(actor, userId);
+    refresh("/portal/admin/users");
+    return actionOk(
+      `One-time password: ${result.password} — hand it over privately; it is shown only now. The account is signed out everywhere and must choose a new password at the next sign-in.`,
+    );
+  });
+}
+
+export async function resolveRecoveryRequestAction(formData: FormData): Promise<ActionState> {
+  const actor = await permitted("user.password_reset");
+  if (!actor) return refused("user.password_reset");
+  return attempt(actor, formData, async () => {
+    const requestId = formString(formData, "requestId");
+    const intent = formString(formData, "intent") === "reset" ? "reset" : "dismiss";
+    if (!requestId) return actionError("No recovery request was named.");
+    const result = await library.resolveRecoveryRequest(actor, requestId, intent);
+    refresh("/portal/admin/users");
+    if (!result.password) {
+      return actionOk("The request was dismissed. Nothing about the account was changed.");
+    }
+    return actionOk(
+      `One-time password: ${result.password} — hand it over privately. The account is signed out everywhere and must choose a new password at the next sign-in.`,
+    );
+  });
+}

@@ -132,14 +132,32 @@ Render's health check probes, so it touches the database rather than reporting
 only that the process is alive. The body carries no error text: the URL is
 public, and a driver message can name an internal host.
 
+### `POST /api/auth/recovery`
+
+The public "forgot username or password" form. `multipart/form-data` with
+`identifier` (3–200 characters: an email address or the name the account is
+under) and the anonymous form token (`csrfToken` field or `x-form-token`
+header). The request is written to `account_recovery_requests` either way and
+the answer is identical — `303 /forgot?form_status=sent` with
+`{ received: true }` for a browser, `200` JSON otherwise — so the form cannot
+be used to discover which addresses or names have accounts. Only an
+administrator reading the Users panel learns whether a row matched. Missing
+token `403`, blank or short identifier `422`, limit **5 per address per hour**,
+honeypot ignored as on every public form.
+
 ## Authenticated endpoints
 
 ### `POST /api/auth/session`
 
-JSON `{ email, password }`. On success sets `mcv_session` (HttpOnly, SameSite
-Lax, `Secure` in production, expiry = the session's idle window) and
+JSON `{ email, password, next? }`. On success sets `mcv_session` (HttpOnly,
+SameSite Lax, `Secure` in production, expiry = the session's idle window) and
 `mcv_csrf` (script-readable, by design, for the double-submit header), then
-returns `{ user: { id, name, email, mustChangePassword }, csrfToken, redirectTo: "/portal" }`.
+returns `{ user: { id, name, email, mustChangePassword }, csrfToken, redirectTo }`.
+
+`redirectTo` is `/teacher` for an account holding the `teacher` role and
+`/portal` for everyone else. A `next` value is honoured only when it is a path
+on this site (`/…`, not `//…` or `/\…`), so a crafted link cannot bounce a
+freshly signed-in browser to another domain.
 
 Failures are deliberately indistinguishable: unknown address, wrong password and
 inactive account all answer `401 invalid_credentials` with the same sentence, and
@@ -180,6 +198,27 @@ csrf_failed`, `401 unauthenticated`, `429` after **8 refused attempts per
 address per 15 minutes**. Both the refusal (`auth.password_change_failed`) and
 the change (`auth.password_changed`) are audited; the plaintext appears in no
 column, no audit field and no response.
+
+### `POST /api/auth/account`
+
+A signed-in account changing its **sign-in address**. `multipart/form-data`:
+
+| Field | Notes |
+| --- | --- |
+| `mcv_session` cookie | must resolve to a live session of an **active** account |
+| `csrfToken` | the session-bound token rendered into `/portal/account` |
+| `currentPassword` | required — an unattended browser must not move an account |
+| `newEmail` | lowercased and trimmed; must be valid and unused |
+
+`200` `{ emailChanged: true, email }` with a **fresh** session cookie after
+every other session for the account has been revoked (`email_changed`), so the
+old address cannot keep a browser signed in. `401 invalid_credentials` for a
+wrong current password (audited as `auth.email_change_failed`), `422
+validation_failed` for an invalid, unchanged or already-used address — the
+unique index decides the race if two requests pass the check together — `403
+csrf_failed`, `401 unauthenticated`, `429` after **8 refused attempts per
+address per 15 minutes**. The change is audited as `auth.email_changed`; the
+password never appears in the audit row or the response.
 
 ## What is deliberately absent
 

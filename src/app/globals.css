@@ -935,6 +935,14 @@
     }
   }
 
+  /* While the menu drawer is open, the fixed contact controls and the mobile
+     bar sit above it and cover its last entries. The header adds this class to
+     <body>; closing the drawer brings all three back. */
+  .nav-open .contact-stack,
+  .nav-open .mobile-action-bar {
+    display: none;
+  }
+
   /* Keep the last line of the page clear of the fixed mobile action bar. */
   @media (max-width: 767px) {
     .site-footer .footer-bottom {

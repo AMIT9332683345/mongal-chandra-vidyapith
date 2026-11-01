@@ -54,6 +54,8 @@ export default async function NoticeEditorPage({ params }: { params: Promise<{ i
   const canEdit = principalHas(actor, "notice.edit");
   const canPublish = principalHas(actor, "notice.publish");
   const canUpload = principalHas(actor, "document.upload") && canEdit;
+  const isPublic = notice.audience === "public";
+  const audienceLabel = notice.audience === "teachers" ? "teachers only" : "signed-in staff only";
 
   return (
     <PanelShell
@@ -65,11 +67,20 @@ export default async function NoticeEditorPage({ params }: { params: Promise<{ i
     >
       <dl className="card grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <dt className="eyebrow">Public address</dt>
+          <dt className="eyebrow">{isPublic ? "Public address" : "No public address"}</dt>
           <dd className="mt-1 text-[0.9rem]">
-            <Link href={`/notices/${notice.slug}`} style={{ color: "var(--accent)" }}>
-              /notices/{notice.slug}
-            </Link>
+            {isPublic ? (
+              <Link href={`/notices/${notice.slug}`} style={{ color: "var(--accent)" }}>
+                /notices/{notice.slug}
+              </Link>
+            ) : (
+              <>
+                {audienceLabel}
+                <span className="block text-[0.82rem]" style={{ color: "var(--ink-muted)" }}>
+                  Read in the teacher area, never on the website.
+                </span>
+              </>
+            )}
           </dd>
         </div>
         <div>
@@ -125,7 +136,11 @@ export default async function NoticeEditorPage({ params }: { params: Promise<{ i
                 variant="gold"
                 small
                 inline
-                note="Puts it on the public board at once."
+                note={
+                  isPublic
+                    ? "Puts it on the public board at once."
+                    : `Publishes it to ${audienceLabel}; the website will not show it.`
+                }
                 hidden={{ id: notice.id, intent: "publish" }}
               />
             )}
@@ -137,7 +152,7 @@ export default async function NoticeEditorPage({ params }: { params: Promise<{ i
                 variant="secondary"
                 small
                 inline
-                note="Out of the public list, kept in the record."
+                note={isPublic ? "Out of the public list, kept in the record." : "Out of the staff area, kept in the record."}
                 hidden={{ id: notice.id, intent: "unpublish" }}
               />
             )}
@@ -164,8 +179,8 @@ export default async function NoticeEditorPage({ params }: { params: Promise<{ i
             <h3 className="text-[1rem] font-semibold">Release it on a date</h3>
             <p className="mt-1 text-[0.88rem]" style={{ color: "var(--ink-muted)" }}>
               This build runs no background worker. A scheduled notice waits with its release time recorded, and the
-              button on the panel overview — or the one below — moves every due notice onto the board when someone with
-              the permission presses it.
+              button on the panel overview — or the one below — makes every due notice live for its own audience when
+              someone with the permission presses it.
             </p>
             <ActionForm
               action={changeNoticeStatusAction}

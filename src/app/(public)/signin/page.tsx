@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { SignInForm } from "@/components/sign-in-form";
 import { PageHeader } from "@/components/page-header";
 import { pageMetadata } from "@/lib/metadata";
+import { TEACHER_SIGN_IN_HREF } from "@/lib/navigation";
 import { getCurrentPrincipal } from "@/server/auth/session";
 import { getSchoolName } from "@/server/content/site";
 
@@ -50,8 +52,18 @@ export default async function SignInPage({
             deployment notes.
           </p>
           <p className="mt-3 text-[0.9rem]" style={{ color: "var(--ink-muted)" }}>
-            Forgotten a password? Ask the office to issue a single-use reset link. A reset is logged, and the old
-            sessions end when it is used.
+            Forgotten the address or the password?{" "}
+            <Link href="/forgot" style={{ color: "var(--accent)", fontWeight: 600 }}>
+              Ask the school office here
+            </Link>
+            . A reset is recorded, and the old sessions end when it is used.
+          </p>
+          <p className="mt-3 text-[0.9rem]" style={{ color: "var(--ink-muted)" }}>
+            A teacher account has{" "}
+            <Link href={TEACHER_SIGN_IN_HREF} style={{ color: "var(--accent)", fontWeight: 600 }}>
+              its own door and its own landing page
+            </Link>
+            , where staff notices — including a password the office issued — are read.
           </p>
         </div>
 

@@ -4,13 +4,14 @@ import { recordAudit } from "@/server/auth/audit";
 import { authenticate } from "@/server/auth/login";
 import {
   SESSION_COOKIE,
+  applySessionCookies,
   clientIp,
   clearSessionCookies,
   createSession,
   hashToken,
   hashIp,
+  loadGrants,
   revokeSession,
-  setSessionCookies,
 } from "@/server/auth/session";
 import { apiError, apiOk, failureToResponse, fieldErrors } from "@/server/http/respond";
 
@@ -25,7 +26,19 @@ import { apiError, apiOk, failureToResponse, fieldErrors } from "@/server/http/r
 const credentialsSchema = z.object({
   email: z.string().trim().min(3).max(200),
   password: z.string().min(1).max(200),
+  /** Where the form wants to land, after a sign-in that succeeded. */
+  next: z.string().max(200).optional(),
 });
+
+/**
+ * Only a path on this site may follow a sign-in, so `?next=` cannot bounce a
+ * freshly authenticated browser to another domain.
+ */
+function safeNext(value: string | undefined): string | null {
+  if (!value) return null;
+  if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return null;
+  return value.slice(0, 160);
+}
 
 export const runtime = "nodejs";
 
@@ -63,18 +76,26 @@ export async function POST(request: Request) {
     }
 
     const session = await createSession(outcome.user.id, subject);
-    await setSessionCookies(session.token, session.csrfToken, session.expiresAt);
 
-    return apiOk({
-      user: {
-        id: outcome.user.id,
-        name: outcome.user.displayName,
-        email: outcome.user.email,
-        mustChangePassword: outcome.user.mustChangePassword,
-      },
-      csrfToken: session.csrfToken,
-      redirectTo: "/portal",
-    });
+    // A teacher reaches the staff area rather than the content desk, unless the
+    // form asked for a particular page inside this site.
+    const grants = await loadGrants(outcome.user.id);
+    const redirectTo =
+      safeNext(parsed.data.next) ?? (grants.roleKeys.includes("teacher") ? "/teacher" : "/portal");
+
+    return applySessionCookies(
+      apiOk({
+        user: {
+          id: outcome.user.id,
+          name: outcome.user.displayName,
+          email: outcome.user.email,
+          mustChangePassword: outcome.user.mustChangePassword,
+        },
+        csrfToken: session.csrfToken,
+        redirectTo,
+      }),
+      session,
+    );
   } catch (error) {
     return failureToResponse(error);
   }

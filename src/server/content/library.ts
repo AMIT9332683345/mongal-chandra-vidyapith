@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  CASE_INSENSITIVE,
   deleteDocs,
   findDoc,
   findDocById,
@@ -9,10 +10,11 @@ import {
   type DocOf,
   type FilterOf,
 } from "@/server/db/mongo/repository";
+import { UniqueViolation } from "@/server/db/mongo/errors";
 import { recordAuditFor } from "@/server/auth/audit";
 import { hashPassword, checkPasswordStrength } from "@/server/auth/passwords";
+import { revokeAllSessions, type Principal } from "@/server/auth/session";
 import { randomBytes } from "node:crypto";
-import type { Principal } from "@/server/auth/session";
 import { FileRejectedError, storeFile } from "@/server/storage/files";
 import { ContentRejectedError } from "@/server/content/admin";
 
@@ -807,4 +809,161 @@ export async function setUserActive(actor: Principal, userId: string, active: bo
     resourceId: userId,
     summary: `${active ? "Reactivated" : "Suspended"} ${user.email}`,
   });
+}
+
+/** The address is half of the credential, so changing it ends every sign-in. */
+export async function updateUserEmail(actor: Principal, userId: string, rawEmail: string): Promise<{ email: string }> {
+  const email = rawEmail.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 200) {
+    throw new ContentRejectedError("That email address is not valid.");
+  }
+  const user = await findDocById("users", userId);
+  if (!user) throw new ContentRejectedError("That account no longer exists.");
+  if (email === user.email.toLowerCase()) {
+    throw new ContentRejectedError("That account already signs in with this address.");
+  }
+
+  const taken = await findDoc(
+    "users",
+    { email, id: { $ne: userId } },
+    { collation: CASE_INSENSITIVE, projection: { id: 1 } },
+  );
+  if (taken) throw new ContentRejectedError("Another account already signs in with that address.");
+
+  try {
+    await updateOneDoc("users", { id: userId }, { email, updatedAt: now() });
+  } catch (error) {
+    if (error instanceof UniqueViolation) {
+      throw new ContentRejectedError("Another account already signs in with that address.");
+    }
+    throw error;
+  }
+
+  await revokeAllSessions(userId, "email_changed");
+  await recordAuditFor(actor, {
+    action: "user.email_changed",
+    resourceType: "user",
+    resourceId: userId,
+    summary: `Changed the sign-in address for ${user.displayName}`,
+    metadata: { previousEmail: user.email, email },
+  });
+  return { email };
+}
+
+/**
+ * Issues a new one-time password for another account.
+ *
+ * The caller sees the password exactly once, in the form's result; only its hash
+ * is stored. Every session for the account ends with it, and the account is
+ * flagged so the next sign-in has to choose a private password.
+ */
+export async function resetUserPassword(actor: Principal, userId: string): Promise<{ password: string }> {
+  const user = await findDocById("users", userId);
+  if (!user) throw new ContentRejectedError("That account no longer exists.");
+
+  const password = generatePassword();
+  const strength = checkPasswordStrength(password);
+  if (!strength.ok) throw new ContentRejectedError(strength.problems.join(" "));
+
+  await updateOneDoc("users", { id: userId }, {
+    passwordHash: await hashPassword(password),
+    mustChangePassword: true,
+    passwordChangedAt: now(),
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    updatedAt: now(),
+  });
+  await revokeAllSessions(userId, "password_reset");
+  await recordAuditFor(actor, {
+    action: "user.password_reset",
+    resourceType: "user",
+    resourceId: userId,
+    summary: `Issued a new one-time password for ${user.email}`,
+  });
+  return { password };
+}
+
+export type RecoveryRequestRow = {
+  id: string;
+  identifier: string;
+  createdAt: Date;
+  matchedUser: { id: string; email: string; displayName: string; status: string } | null;
+};
+
+/** The office queue: who asked to be let back in, and whether a row matches. */
+export async function listRecoveryRequests(): Promise<RecoveryRequestRow[]> {
+  const rows = await findDocs(
+    "account_recovery_requests",
+    { status: "open" },
+    { sort: { createdAt: -1 }, limit: 100 },
+  );
+  const userIds = [
+    ...new Set(
+      rows
+        .map((row) => row.matchedUserId)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    ),
+  ];
+  const accounts =
+    userIds.length > 0 ? await findDocs("users", { id: { $in: userIds } }) : [];
+  const byId = new Map(accounts.map((account) => [account.id, account]));
+
+  return rows.map((row) => {
+    const account = row.matchedUserId ? byId.get(row.matchedUserId) : undefined;
+    return {
+      id: row.id,
+      identifier: row.identifier,
+      createdAt: row.createdAt,
+      matchedUser: account
+        ? {
+            id: account.id,
+            email: account.email,
+            displayName: account.displayName,
+            status: account.status,
+          }
+        : null,
+    };
+  });
+}
+
+/**
+ * Closes a recovery request. A matched request can be answered with a new
+ * one-time password; an unmatched one can only be dismissed, because inventing
+ * an account from a stranger's message is how a stranger becomes a member.
+ */
+export async function resolveRecoveryRequest(
+  actor: Principal,
+  requestId: string,
+  intent: "reset" | "dismiss",
+): Promise<{ password: string | null }> {
+  const request = await findDocById("account_recovery_requests", requestId);
+  if (!request) throw new ContentRejectedError("That request no longer exists.");
+  if (request.status !== "open") throw new ContentRejectedError("That request has already been closed.");
+
+  let password: string | null = null;
+  if (intent === "reset") {
+    if (!request.matchedUserId) {
+      throw new ContentRejectedError(
+        "This request does not match an account. Dismiss it, and ask the person to contact the office with their name and role.",
+      );
+    }
+    const account = await findDocById("users", request.matchedUserId);
+    if (!account) throw new ContentRejectedError("The account this request matched no longer exists.");
+    password = (await resetUserPassword(actor, account.id)).password;
+  }
+
+  await updateOneDoc("account_recovery_requests", { id: requestId }, {
+    status: intent === "reset" ? "resolved" : "dismissed",
+    outcome: intent === "reset" ? "password_reset" : "dismissed",
+    resolvedByUserId: actor.userId,
+    resolvedAt: now(),
+    updatedAt: now(),
+  });
+  await recordAuditFor(actor, {
+    action: "recovery.resolve",
+    resourceType: "account_recovery_request",
+    resourceId: requestId,
+    summary: intent === "reset" ? "Issued a new password from a recovery request" : "Dismissed a recovery request",
+  });
+  return { password };
 }

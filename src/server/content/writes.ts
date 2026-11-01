@@ -217,6 +217,10 @@ export function writeHeroAlbums(actor: Principal, formData: FormData): Promise<A
 /* -------------------------------------------------------------------------- */
 
 function noticeInput(formData: FormData) {
+  const rawAudience = formString(formData, "audience");
+  // Unknown values fall back to public, the audience the form starts on.
+  const audience: "public" | "staff" | "teachers" =
+    rawAudience === "staff" || rawAudience === "teachers" ? rawAudience : "public";
   return {
     id: text(formData, "id"),
     title: text(formData, "title") ?? "",
@@ -228,6 +232,7 @@ function noticeInput(formData: FormData) {
     expiresOn: text(formData, "expiresOn"),
     pinned: formChecked(formData, "pinned"),
     pinUntil: text(formData, "pinUntil"),
+    audience,
   };
 }
 

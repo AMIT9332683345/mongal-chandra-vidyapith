@@ -18,7 +18,11 @@ the code ships no invented facts about the school.
 | File storage in Atlas GridFS with visibility-checked serving | Built, tested |
 | **Content panel** — homepage sections, school settings, notices, events, photo albums, downloads, CMS pages, FAQs, testimonials, achievements, audit log | Built, verified in a browser |
 | **Admissions panel** — applications list and file view, status decisions, enquiries with replies | Built, verified in a browser |
-| **Users and roles panel** — create accounts, one-time passwords, suspend/reactivate, assign roles | Built, verified in a browser |
+| **Users and roles panel** — create accounts, one-time passwords, edit an account's sign-in address, reset a password, suspend/reactivate, assign roles, and work the forgotten-credential queue | Built, verified in a browser |
+| **Self-service account settings** at `/portal/account` — change your own sign-in address and password; both require the current password and replace every session | Built, tested |
+| **Forgotten username/password** — public form at `/forgot`, answered identically whether or not an account matches; the office resolves it from the Users panel | Built, tested |
+| **Teacher dashboard** at `/teacher`, signed in at `/teacher/signin` | Built, verified in a browser |
+| **Staff-only notices** — a notice can be addressed to teachers, all staff, or the public; staff-only notices never appear on the website | Built, tested |
 | SEO layer: metadata, Open Graph, JSON-LD, sitemap, robots, 404 | Built, tested |
 | **Attendance, marks, fees and library screens** | **Not built.** The permissions they will run on are; the screens are the next phase |
 | **Notification delivery (email/SMS)** | **Not configured.** No provider credentials exist yet, so nothing claims a message was sent |
@@ -27,7 +31,9 @@ the code ships no invented facts about the school.
 
 The portal at `/portal` resolves the signed-in person's role and permissions and
 shows only the rooms that role opens, so a teacher never sees an accounts
-screen even as a disabled link.
+screen even as a disabled link. A teacher who signs in at `/signin` or
+`/teacher/signin` lands on `/teacher` instead, where the notices addressed to
+teachers are listed; everything else in the portal stays behind its permission.
 
 ---
 
@@ -170,6 +176,7 @@ found.
 | --- | --- |
 | `tests/auth.test.ts` | scrypt storage and re-hash, password strength, sign-in (unknown address and wrong password answer identically, lockout, inactive accounts), session hashing, CSRF binding to one session, revocation, role grant resolution, super-admin wildcard, row-level scope for guardian/pupil/teacher/librarian/admin, durability across a brand-new connection, database-level validation |
 | `tests/password-change.test.ts` | Unauthenticated and revoked sessions, suspended accounts, missing/foreign CSRF token, no-JS redirect, wrong current password, weak and unchanged replacements, throttle at 8 failures per address, session rotation, audit entries, and that the plaintext never reaches a stored field |
+| `tests/account-recovery.test.ts` | Self-service email change (wrong password, invalid, unchanged, address in use, case handling, suspended account), the forgotten-credential queue (matched and unmatched identifiers answer alike, one-time password works, sessions revoked, double-close refused), office edits of another account, teacher-only notice visibility, both recovery routes, the sign-in landing rule (`/teacher` for teachers, same-site `next` honoured, off-site refused), and revoked sessions |
 | `tests/public-forms.test.ts` | Contact, application and status-lookup routes as real `Request` objects: form token, honeypot, rate limits, field errors, reference-number format, restricted document storage, closed-class rejection, duplicate flagging, two-factor status lookup, durability |
 | `tests/public-content.test.ts` | Notice/page/document visibility, confirmed-content gates, gallery consent, staff directory privacy, document listings that never return a storage key |
 | `tests/file-serving.test.ts` | Magic-byte detection, extension mismatch, size ceiling, random unguessable keys, safe download names, and that restricted/private/deleted/malformed ids all answer the same 404 |

@@ -10,6 +10,7 @@ export type NoticeFieldValues = {
   expiresOn?: string | null;
   pinned?: boolean;
   pinUntil?: string | null;
+  audience?: "public" | "staff" | "teachers";
 };
 
 /**
@@ -80,6 +81,24 @@ export function NoticeFields({
             required
             defaultValue={notice?.body ?? ""}
             hint="Line breaks are kept. A blank notice cannot be published."
+          />
+        </div>
+      </FieldGroup>
+
+      <FieldGroup title="Who sees it">
+        <div className="sm:col-span-2">
+          <Field
+            uid={uid}
+            name="audience"
+            label="Audience"
+            as="select"
+            defaultValue={notice?.audience ?? "public"}
+            options={[
+              { value: "public", label: "Everyone — the public notice board" },
+              { value: "staff", label: "Signed-in staff only — never on the public site" },
+              { value: "teachers", label: "Teachers only — the teacher area" },
+            ]}
+            hint="A staff or teacher notice is still published when you publish it, but it has no public address. Use “Teachers only” for credentials."
           />
         </div>
       </FieldGroup>

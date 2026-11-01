@@ -6,8 +6,15 @@ import { formatDateTime } from "@/lib/format";
 import { pageMetadata } from "@/lib/metadata";
 import { makeCsrfToken, principalHas } from "@/server/auth/session";
 import { requirePanel } from "@/server/auth/gate";
-import { listRolesForAdmin, listUsersForAdmin } from "@/server/content/library";
-import { assignUserRoleAction, createUserAction, setUserActiveAction } from "@/server/content/library-actions";
+import { listRecoveryRequests, listRolesForAdmin, listUsersForAdmin } from "@/server/content/library";
+import {
+  assignUserRoleAction,
+  createUserAction,
+  resetUserPasswordAction,
+  resolveRecoveryRequestAction,
+  setUserActiveAction,
+  updateUserEmailAction,
+} from "@/server/content/library-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -27,11 +34,17 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default async function UsersPanelPage() {
   const actor = await requirePanel("user.view", "/portal/admin/users");
-  const [users, roles] = await Promise.all([listUsersForAdmin(), listRolesForAdmin()]);
+  const [users, roles, recoveryRequests] = await Promise.all([
+    listUsersForAdmin(),
+    listRolesForAdmin(),
+    listRecoveryRequests(),
+  ]);
   const csrfToken = makeCsrfToken(actor.sessionId);
   const canCreate = principalHas(actor, "user.create");
   const canAssign = principalHas(actor, "role.assign");
   const canSuspend = principalHas(actor, "user.deactivate");
+  const canEdit = principalHas(actor, "user.edit");
+  const canReset = principalHas(actor, "user.password_reset");
 
   const roleOptions = roles.map((role) => ({ value: role.id, label: role.name }));
 
@@ -75,6 +88,68 @@ export default async function UsersPanelPage() {
           This account may see the list but not create an account. Only someone holding “user.create” can.
         </p>
       )}
+
+      <section className="rule mt-10 pt-8">
+        <h2 className="text-[1.15rem]">Access requests</h2>
+        <p className="mt-1 max-w-prose text-[0.92rem]" style={{ color: "var(--ink-muted)" }}>
+          What the public <strong>Forgotten username or password</strong> form has received. A request never changes an
+          account by itself. When you issue a password here it is shown once, every session for that account ends, and
+          the person must choose their own at the next sign-in.
+        </p>
+        {recoveryRequests.length === 0 ? (
+          <p className="pending mt-4">No request is waiting. The form at /forgot writes here.</p>
+        ) : (
+          <ul className="mt-4 space-y-4" style={{ listStyle: "none" }}>
+            {recoveryRequests.map((request) => (
+              <li key={request.id} className="card p-5">
+                <p className="font-semibold" style={{ color: "var(--ink)" }}>
+                  {request.identifier}
+                </p>
+                <p className="mt-1 text-[0.85rem]" style={{ color: "var(--ink-muted)" }}>
+                  Asked {formatDateTime(request.createdAt) ?? "recently"} ·{" "}
+                  {request.matchedUser ? (
+                    <span>
+                      matches <strong style={{ color: "var(--ink)" }}>{request.matchedUser.displayName}</strong> (
+                      {request.matchedUser.email}, {request.matchedUser.status})
+                    </span>
+                  ) : (
+                    <span>no account matches — check the spelling with the caller before doing anything</span>
+                  )}
+                </p>
+
+                {canReset ? (
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    {request.matchedUser ? (
+                      <ActionForm
+                        action={resolveRecoveryRequestAction}
+                        csrfToken={csrfToken}
+                        submitLabel="Issue a new password"
+                        variant="gold"
+                        small
+                        confirm={`Issue a new password for ${request.matchedUser.displayName}? Their sessions end and the old password stops working.`}
+                        hidden={{ requestId: request.id, intent: "reset" }}
+                      />
+                    ) : null}
+                    <ActionForm
+                      action={resolveRecoveryRequestAction}
+                      csrfToken={csrfToken}
+                      submitLabel="Dismiss"
+                      variant="secondary"
+                      small
+                      inline
+                      hidden={{ requestId: request.id, intent: "dismiss" }}
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-3 text-[0.88rem]" style={{ color: "var(--ink-muted)" }}>
+                    Answering a request needs “user.password_reset”.
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="rule mt-10 pt-8">
         <h2 className="text-[1.15rem]">Every account</h2>
@@ -169,6 +244,49 @@ export default async function UsersPanelPage() {
                           />
                         </div>
                       </ActionForm>
+                    </div>
+                  ) : null}
+
+                  {canEdit || canReset ? (
+                    <div
+                      className="mt-4 flex flex-wrap items-start gap-6 border-t pt-4"
+                      style={{ borderColor: "var(--line)" }}
+                    >
+                      {canEdit ? (
+                        <ActionForm
+                          action={updateUserEmailAction}
+                          csrfToken={csrfToken}
+                          submitLabel="Change the address"
+                          variant="secondary"
+                          small
+                          hidden={{ userId: user.id }}
+                          note="The account is signed out everywhere and must sign in with the new address."
+                          className="min-w-[17rem] flex-1"
+                        >
+                          <Field
+                            uid={`email-${user.id}`}
+                            name="email"
+                            label="Sign-in address"
+                            type="email"
+                            required
+                            defaultValue={user.email}
+                          />
+                        </ActionForm>
+                      ) : null}
+
+                      {canReset ? (
+                        <ActionForm
+                          action={resetUserPasswordAction}
+                          csrfToken={csrfToken}
+                          submitLabel="Issue a one-time password"
+                          variant="secondary"
+                          small
+                          confirm={`Issue a new password for ${user.displayName}? Every session ends and the current password stops working.`}
+                          hidden={{ userId: user.id }}
+                          note="Shown once here. The person must choose a new password at the next sign-in."
+                          className="min-w-[15rem]"
+                        />
+                      ) : null}
                     </div>
                   ) : null}
                 </li>

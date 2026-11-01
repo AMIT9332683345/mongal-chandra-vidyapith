@@ -313,6 +313,48 @@ function safeRelativeHref(value: string | null): string | null {
 /* Notices                                                                     */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Who a notice is written for.
+ *
+ * A published notice is not automatically a public one. The audience is stored
+ * as role keys on the notice row, and every reader — the public notice board,
+ * the teacher area — asks the database for the audience it serves. A notice for
+ * teachers is published and final, and still never appears on the website.
+ */
+export const NOTICE_AUDIENCES = {
+  public: [],
+  staff: [
+    "teacher",
+    "principal",
+    "school_admin",
+    "super_admin",
+    "office_staff",
+    "admission_staff",
+    "accounts",
+    "librarian",
+    "event_coordinator",
+  ],
+  teachers: ["teacher"],
+} as const;
+
+export type NoticeAudience = keyof typeof NOTICE_AUDIENCES;
+
+export function audienceRoleKeysFor(audience: NoticeAudience): string[] {
+  return [...NOTICE_AUDIENCES[audience]];
+}
+
+function storedAudienceKeys(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((key): key is string => typeof key === "string") : [];
+}
+
+/** The form's audience value for a stored row. */
+export function audienceFromRoles(value: unknown): NoticeAudience {
+  const keys = storedAudienceKeys(value);
+  if (keys.length === 0) return "public";
+  if (keys.length === 1 && keys[0] === "teacher") return "teachers";
+  return "staff";
+}
+
 export const noticeSchema = z.object({
   id: optionalText(60),
   title: z.string().trim().min(4, "Give the notice a title.").max(200),
@@ -324,6 +366,7 @@ export const noticeSchema = z.object({
   expiresOn: dateField,
   pinned: z.boolean(),
   pinUntil: dateField,
+  audience: z.enum(["public", "staff", "teachers"]).default("public"),
 });
 
 export type NoticeAdminRow = {
@@ -336,6 +379,8 @@ export type NoticeAdminRow = {
   categoryKey: string | null;
   status: NoticesDoc["status"];
   publicVisible: boolean;
+  audience: NoticeAudience;
+  audienceRoleKeys: string[];
   pinned: boolean;
   pinUntil: string | null;
   issuedOn: string | null;
@@ -365,6 +410,8 @@ export async function listNoticesForAdmin(filter: { status?: string } = {}): Pro
       categoryKey: category?.key ?? null,
       status: row.status,
       publicVisible: row.publicVisible ?? false,
+      audience: audienceFromRoles(row.audienceRoleKeys),
+      audienceRoleKeys: storedAudienceKeys(row.audienceRoleKeys),
       pinned: row.pinned ?? false,
       pinUntil: row.pinUntil ?? null,
       issuedOn: row.issuedOn ?? null,
@@ -405,6 +452,7 @@ export async function saveNotice(actor: Principal, input: z.input<typeof noticeS
   if (parsed.id && !existing) throw new ContentRejectedError("That notice no longer exists.");
 
   const slug = await uniqueSlug("notices", parsed.title, existing?.id);
+  const audienceRoleKeys = audienceRoleKeysFor(parsed.audience);
   const values = {
     title: parsed.title,
     slug,
@@ -416,16 +464,25 @@ export async function saveNotice(actor: Principal, input: z.input<typeof noticeS
     expiresOn: parsed.expiresOn,
     pinned: parsed.pinned,
     pinUntil: parsed.pinned ? parsed.pinUntil : null,
+    audienceRoleKeys,
+    // Only a public notice reaches the website. A staff notice may be published
+    // and still have no public address at all.
+    publicVisible: parsed.audience === "public" && existing?.status === "published",
     updatedByUserId: actor.userId,
   };
 
   if (existing) {
     await replaceDoc("notices", { id: existing.id }, values);
+    // Changing the audience of something already live is a visibility change:
+    // its attachments follow it in the same moment, without a second button.
+    if (existing.status === "published") {
+      await setNoticeAttachmentVisibility(existing.id, parsed.audience === "public" ? "public" : "restricted");
+    }
     await recordAuditFor(actor, {
       action: "notice.edit",
       resourceType: "notice",
       resourceId: existing.id,
-      summary: `Edited “${parsed.title}”`,
+      summary: `Edited “${parsed.title}” (${parsed.audience === "public" ? "public" : parsed.audience === "teachers" ? "teachers only" : "staff"})`,
     });
     return { id: existing.id, slug };
   }
@@ -473,6 +530,7 @@ export async function setNoticeStatus(
   if (!notice) throw new ContentRejectedError("That notice no longer exists.");
 
   const change = NOTICE_LIFECYCLE[action];
+  const audienceIsPublic = storedAudienceKeys(notice.audienceRoleKeys).length === 0;
   if (action === "publish") {
     if (notice.body.trim().length === 0 || notice.title.trim().length === 0) {
       throw new ContentRejectedError("A notice needs a title and text before it can be published.");
@@ -484,6 +542,9 @@ export async function setNoticeStatus(
 
   const set: Partial<NoticesDoc> = { ...change, updatedByUserId: actor.userId };
   if (action === "publish") {
+    // A staff notice is published without becoming public. The two facts are
+    // stored separately so the website cannot show what the audience excludes.
+    set.publicVisible = audienceIsPublic;
     set.publishedAt = notice.publishedAt ?? new Date();
     set.archivedAt = null;
   }
@@ -497,12 +558,15 @@ export async function setNoticeStatus(
   if (action === "archive") set.archivedAt = new Date();
 
   await updateOneDoc("notices", { id }, set);
-  await setNoticeAttachmentVisibility(id, action === "publish" ? "public" : "restricted");
+  await setNoticeAttachmentVisibility(
+    id,
+    action === "publish" && audienceIsPublic ? "public" : "restricted",
+  );
   await recordAuditFor(actor, {
     action: action === "publish" ? "notice.publish" : "notice.edit",
     resourceType: "notice",
     resourceId: id,
-    summary: `${action === "publish" ? "Published" : action === "unpublish" ? "Took down" : action === "archive" ? "Archived" : "Scheduled"} “${notice.title}”`,
+    summary: `${action === "publish" ? "Published" : action === "unpublish" ? "Took down" : action === "archive" ? "Archived" : "Scheduled"} “${notice.title}”${action === "publish" && !audienceIsPublic ? " for staff only" : ""}`,
   });
 }
 
@@ -513,18 +577,19 @@ export async function releaseDueNotices(actor: Principal | null): Promise<number
     publishAt: { $ne: null, $lte: new Date() },
   });
   for (const notice of due) {
+    const audienceIsPublic = storedAudienceKeys(notice.audienceRoleKeys).length === 0;
     await updateOneDoc("notices", { id: notice.id }, {
       status: "published",
-      publicVisible: true,
+      publicVisible: audienceIsPublic,
       publishedAt: new Date(),
     });
-    await setNoticeAttachmentVisibility(notice.id, "public");
+    await setNoticeAttachmentVisibility(notice.id, audienceIsPublic ? "public" : "restricted");
     if (actor) {
       await recordAuditFor(actor, {
         action: "notice.publish",
         resourceType: "notice",
         resourceId: notice.id,
-        summary: `Released scheduled notice “${notice.title}”`,
+        summary: `Released scheduled notice “${notice.title}”${audienceIsPublic ? "" : " for staff only"}`,
       });
     }
   }

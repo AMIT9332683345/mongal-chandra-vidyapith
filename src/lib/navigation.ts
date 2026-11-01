@@ -62,3 +62,11 @@ const PORTAL_ORIGIN = (process.env.NEXT_PUBLIC_PORTAL_ORIGIN ?? "").replace(/\/$
 
 export const SIGN_IN_HREF = `${PORTAL_ORIGIN}/signin`;
 export const PORTAL_HREF = `${PORTAL_ORIGIN}/portal`;
+/**
+ * Teachers have their own door and their own landing page. The account system is
+ * the same one, but the entry point says plainly that this is the staff area and
+ * sends a teacher to the notices written for staff rather than to the content
+ * desk.
+ */
+export const TEACHER_SIGN_IN_HREF = `${PORTAL_ORIGIN}/teacher/signin`;
+export const TEACHER_HREF = `${PORTAL_ORIGIN}/teacher`;

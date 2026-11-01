@@ -15,6 +15,22 @@
  */
 export type JsonValue = null | string | number | boolean | JsonValue[] | { [key: string]: JsonValue };
 
+export type AccountRecoveryRequestsDoc = {
+  id: string;
+  identifier: string;
+  emailNormalized?: (string) | null;
+  matchedUserId?: (string) | null;
+  kind: "password" | "username" | "either";
+  status: "open" | "resolved" | "dismissed";
+  outcome?: (string) | null;
+  requestIpHash?: (string) | null;
+  userAgent?: (string) | null;
+  resolvedByUserId?: (string) | null;
+  resolvedAt?: (Date) | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type AcademicYearsDoc = {
   id: string;
   name: string;
@@ -1480,6 +1496,50 @@ export type UsersDoc = {
 };
 
 export const collectionSpecs = {
+  "account_recovery_requests": {
+    doc: null as unknown as AccountRecoveryRequestsDoc,
+    validator: {
+      bsonType: "object",
+      additionalProperties: true,
+      required: ["_id", "identifier", "status"],
+      properties: {
+        _id: { bsonType: "string" },
+        identifier: {"bsonType":"string"},
+        emailNormalized: {"bsonType":["string","null"]},
+        matchedUserId: {"bsonType":["string","null"]},
+        kind: {"bsonType":"string","enum":["password","username","either"]},
+        status: {"bsonType":"string","enum":["open","resolved","dismissed"]},
+        outcome: {"bsonType":["string","null"]},
+        requestIpHash: {"bsonType":["string","null"]},
+        userAgent: {"bsonType":["string","null"]},
+        resolvedByUserId: {"bsonType":["string","null"]},
+        resolvedAt: {"bsonType":["date","null"]},
+        createdAt: {"bsonType":"date"},
+        updatedAt: {"bsonType":"date"},
+      },
+    },
+    defaults: {
+      "kind": "either",
+      "status": "open",
+      "createdAt": { generate: "now" },
+      "updatedAt": { generate: "now" },
+    },
+    indexes: [
+    {
+      name: "account_recovery_requests_queue_idx",
+      key: {"status":1,"createdAt":-1},
+    },
+    {
+      name: "account_recovery_requests_user_idx",
+      key: {"matchedUserId":1},
+    },
+    ],
+    foreignKeys: [
+    { field: "matchedUserId", ref: "users", refField: "id", onDelete: "set null" },
+    { field: "resolvedByUserId", ref: "users", refField: "id", onDelete: "set null" },
+    ],
+
+  },
   "academic_years": {
     doc: null as unknown as AcademicYearsDoc,
     validator: {

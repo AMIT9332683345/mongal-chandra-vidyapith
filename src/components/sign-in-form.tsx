@@ -27,6 +27,7 @@ export function SignInForm({ next = "/portal" }: { next?: string }) {
         body: JSON.stringify({
           email: String(form.get("email") ?? ""),
           password: String(form.get("password") ?? ""),
+          next,
         }),
       });
       const payload = (await response.json().catch(() => null)) as

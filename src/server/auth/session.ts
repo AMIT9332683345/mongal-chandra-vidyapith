@@ -84,22 +84,6 @@ function baseCookie() {
   };
 }
 
-export async function setSessionCookies(token: string, csrfToken: string, expiresAt: Date) {
-  const jar = await cookieJar();
-  jar.set(SESSION_COOKIE, token, {
-    ...baseCookie(),
-    httpOnly: true,
-    expires: expiresAt,
-  });
-  // Readable by script on purpose: the client must echo it back in a header.
-  // It grants nothing by itself, which is what makes the double-submit check work.
-  jar.set(CSRF_COOKIE, csrfToken, {
-    ...baseCookie(),
-    httpOnly: false,
-    expires: expiresAt,
-  });
-}
-
 export async function clearSessionCookies() {
   const jar = await cookieJar();
   const past = new Date(0);

@@ -81,7 +81,11 @@ export default async function NoticesPanelPage() {
                       </span>
                     )}
                     <span className="block text-[0.82rem] font-normal" style={{ color: "var(--ink-muted)" }}>
-                      /{notice.slug}
+                      {notice.audience === "public"
+                        ? `/${notice.slug} · public board`
+                        : notice.audience === "teachers"
+                          ? "teachers only · not on the website"
+                          : "staff only · not on the website"}
                     </span>
                   </th>
                   <td>
