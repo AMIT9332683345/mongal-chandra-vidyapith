@@ -1,0 +1,10 @@
+.mongo-data
+.next
+node_modules
+uploads
+tests
+.git
+*.log
+tsconfig.tsbuildinfo
+.env*
+!.env.example

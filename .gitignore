@@ -36,3 +36,6 @@ Thumbs.db
 
 next-env.d.ts
 tsconfig.tsbuildinfo
+
+# Local link to the Vercel project; holds no secret by itself.
+.vercel
