@@ -1115,6 +1115,7 @@ export async function addAlbumPhotos(
   let sortOrder = existing[0]?.sortOrder ?? 0;
   const rejected: string[] = [];
   let added = 0;
+  let firstAddedDocumentId: string | null = null;
 
   for (const file of files) {
     let buffer: Buffer;
@@ -1153,7 +1154,12 @@ export async function addAlbumPhotos(
       consentStatus: options.containsIdentifiableMinors ? "pending" : "not_required",
       sortOrder,
     });
+    firstAddedDocumentId ??= stored.id;
     added += 1;
+  }
+
+  if (firstAddedDocumentId && !album.coverDocumentId) {
+    await updateOneDoc("gallery_albums", { id: albumId }, { coverDocumentId: firstAddedDocumentId });
   }
 
   await recordAuditFor(actor, {
